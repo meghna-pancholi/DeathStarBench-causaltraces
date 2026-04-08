@@ -1,6 +1,7 @@
 #ifndef SOCIAL_NETWORK_MICROSERVICES_TEXTHANDLER_H
 #define SOCIAL_NETWORK_MICROSERVICES_TEXTHANDLER_H
 
+#include <cstdint>
 #include <future>
 #include <iostream>
 #include <regex>
@@ -14,63 +15,83 @@
 #include "../logger.h"
 #include "../tracing.h"
 
-namespace social_network {
+namespace social_network
+{
 
-class TextHandler : public TextServiceIf {
- public:
-  TextHandler(ClientPool<ThriftClient<UrlShortenServiceClient>> *,
-              ClientPool<ThriftClient<UserMentionServiceClient>> *);
-  ~TextHandler() override = default;
+  class TextHandler : public TextServiceIf
+  {
+  public:
+    TextHandler(ClientPool<ThriftClient<UrlShortenServiceClient>> *,
+                ClientPool<ThriftClient<UserMentionServiceClient>> *);
+    ~TextHandler() override = default;
 
-  void ComposeText(TextServiceReturn &_return, int64_t, const std::string &,
-                   const std::map<std::string, std::string> &) override;
+    void ComposeText(TextServiceReturn &_return, int64_t, const std::string &,
+                     const std::map<std::string, std::string> &) override;
 
- private:
-  ClientPool<ThriftClient<UrlShortenServiceClient>> *_url_client_pool;
-  ClientPool<ThriftClient<UserMentionServiceClient>> *_user_mention_client_pool;
-};
+  private:
+    ClientPool<ThriftClient<UrlShortenServiceClient>> *_url_client_pool;
+    ClientPool<ThriftClient<UserMentionServiceClient>> *_user_mention_client_pool;
+  };
 
-TextHandler::TextHandler(
-    ClientPool<ThriftClient<UrlShortenServiceClient>> *url_client_pool,
-    ClientPool<ThriftClient<UserMentionServiceClient>>
-        *user_mention_client_pool) {
-  _url_client_pool = url_client_pool;
-  _user_mention_client_pool = user_mention_client_pool;
-}
-
-void TextHandler::ComposeText(
-    TextServiceReturn &_return, int64_t req_id, const std::string &text,
-    const std::map<std::string, std::string> &carrier) {
-  // Initialize a span
-  TextMapReader reader(carrier);
-  std::map<std::string, std::string> writer_text_map;
-  TextMapWriter writer(writer_text_map);
-  auto parent_span = opentracing::Tracer::Global()->Extract(reader);
-  auto span = opentracing::Tracer::Global()->StartSpan(
-      "compose_text_server", {opentracing::ChildOf(parent_span->get())});
-  opentracing::Tracer::Global()->Inject(span->context(), writer);
-
-  std::vector<std::string> mention_usernames;
-  std::smatch m;
-  std::regex e("@[a-zA-Z0-9-_]+");
-  auto s = text;
-  while (std::regex_search(s, m, e)) {
-    auto user_mention = m.str();
-    user_mention = user_mention.substr(1, user_mention.length());
-    mention_usernames.emplace_back(user_mention);
-    s = m.suffix().str();
+  TextHandler::TextHandler(
+      ClientPool<ThriftClient<UrlShortenServiceClient>> *url_client_pool,
+      ClientPool<ThriftClient<UserMentionServiceClient>>
+          *user_mention_client_pool)
+  {
+    _url_client_pool = url_client_pool;
+    _user_mention_client_pool = user_mention_client_pool;
   }
 
-  std::vector<std::string> urls;
-  e = "(http://|https://)([a-zA-Z0-9_!~*'().&=+$%-]+)";
-  s = text;
-  while (std::regex_search(s, m, e)) {
-    auto url = m.str();
-    urls.emplace_back(url);
-    s = m.suffix().str();
-  }
+  void TextHandler::ComposeText(
+      TextServiceReturn &_return, int64_t req_id, const std::string &text,
+      const std::map<std::string, std::string> &carrier)
+  {
+    // Initialize a span
+    TextMapReader reader(carrier);
+    std::map<std::string, std::string> writer_text_map;
+    TextMapWriter writer(writer_text_map);
+    auto parent_span = opentracing::Tracer::Global()->Extract(reader);
+    auto span = opentracing::Tracer::Global()->StartSpan(
+        "compose_text_server", {opentracing::ChildOf(parent_span->get())});
+    const std::string connection_id_baggage = span->BaggageItem("connection_id");
+    int64_t connection_id = 0;
+    if (!connection_id_baggage.empty())
+    {
+      try
+      {
+        connection_id = std::stoll(connection_id_baggage);
+      }
+      catch (const std::exception &)
+      {
+      }
+    }
+    span->Log({{"type", "start"}, {"connection_id", connection_id}});
+    opentracing::Tracer::Global()->Inject(span->context(), writer);
 
-  auto shortened_urls_future = std::async(std::launch::async, [&]() {
+    std::vector<std::string> mention_usernames;
+    std::smatch m;
+    std::regex e("@[a-zA-Z0-9-_]+");
+    auto s = text;
+    while (std::regex_search(s, m, e))
+    {
+      auto user_mention = m.str();
+      user_mention = user_mention.substr(1, user_mention.length());
+      mention_usernames.emplace_back(user_mention);
+      s = m.suffix().str();
+    }
+
+    std::vector<std::string> urls;
+    e = "(http://|https://)([a-zA-Z0-9_!~*'().&=+$%-]+)";
+    s = text;
+    while (std::regex_search(s, m, e))
+    {
+      auto url = m.str();
+      urls.emplace_back(url);
+      s = m.suffix().str();
+    }
+
+    auto shortened_urls_future = std::async(std::launch::async, [&]()
+                                            {
     auto url_span = opentracing::Tracer::Global()->StartSpan(
         "compose_urls_client", {opentracing::ChildOf(&span->context())});
 
@@ -95,10 +116,10 @@ void TextHandler::ComposeText(
       throw;
     }
     _url_client_pool->Keepalive(url_client_wrapper);
-    return _return_urls;
-  });
+    return _return_urls; });
 
-  auto user_mention_future = std::async(std::launch::async, [&]() {
+    auto user_mention_future = std::async(std::launch::async, [&]()
+                                          {
     auto user_mention_span = opentracing::Tracer::Global()->StartSpan(
         "compose_user_mentions_client",
         {opentracing::ChildOf(&span->context())});
@@ -128,46 +149,56 @@ void TextHandler::ComposeText(
     }
 
     _user_mention_client_pool->Keepalive(user_mention_client_wrapper);
-    return _return_user_mentions;
-  });
+    return _return_user_mentions; });
 
-  std::vector<Url> target_urls;
-  try {
-    target_urls = shortened_urls_future.get();
-  } catch (...) {
-    LOG(error) << "Failed to get shortened urls from url-shorten-service";
-    throw;
-  }
-
-  std::vector<UserMention> user_mentions;
-  try {
-    user_mentions = user_mention_future.get();
-  } catch (...) {
-    LOG(error) << "Failed to upload user mentions to user-mention-service";
-    throw;
-  }
-
-  std::string updated_text;
-  if (!urls.empty()) {
-    s = text;
-    int idx = 0;
-    while (std::regex_search(s, m, e)) {
-      auto url = m.str();
-      urls.emplace_back(url);
-      updated_text += m.prefix().str() + target_urls[idx].shortened_url;
-      s = m.suffix().str();
-      idx++;
+    std::vector<Url> target_urls;
+    try
+    {
+      target_urls = shortened_urls_future.get();
     }
-  } else {
-    updated_text = text;
+    catch (...)
+    {
+      LOG(error) << "Failed to get shortened urls from url-shorten-service";
+      throw;
+    }
+
+    std::vector<UserMention> user_mentions;
+    try
+    {
+      user_mentions = user_mention_future.get();
+    }
+    catch (...)
+    {
+      LOG(error) << "Failed to upload user mentions to user-mention-service";
+      throw;
+    }
+
+    std::string updated_text;
+    if (!urls.empty())
+    {
+      s = text;
+      int idx = 0;
+      while (std::regex_search(s, m, e))
+      {
+        auto url = m.str();
+        urls.emplace_back(url);
+        updated_text += m.prefix().str() + target_urls[idx].shortened_url;
+        s = m.suffix().str();
+        idx++;
+      }
+    }
+    else
+    {
+      updated_text = text;
+    }
+
+    _return.user_mentions = user_mentions;
+    _return.text = updated_text;
+    _return.urls = target_urls;
+    span->Log({{"type", "finish"}, {"connection_id", connection_id}});
+    span->Finish();
   }
 
-  _return.user_mentions = user_mentions;
-  _return.text = updated_text;
-  _return.urls = target_urls;
-  span->Finish();
-}
+} // namespace social_network
 
-}  // namespace social_network
-
-#endif  // SOCIAL_NETWORK_MICROSERVICES_TEXTHANDLER_H
+#endif // SOCIAL_NETWORK_MICROSERVICES_TEXTHANDLER_H

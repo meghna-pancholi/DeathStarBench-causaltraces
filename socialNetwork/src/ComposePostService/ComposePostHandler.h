@@ -2,6 +2,7 @@
 #define SOCIAL_NETWORK_MICROSERVICES_SRC_COMPOSEPOSTSERVICE_COMPOSEPOSTHANDLER_H_
 
 #include <chrono>
+#include <cstdint>
 #include <future>
 #include <iostream>
 #include <nlohmann/json.hpp>
@@ -151,9 +152,6 @@ TextServiceReturn ComposePostHandler::_ComposeTextHelper(
   auto parent_span = opentracing::Tracer::Global()->Extract(reader);
   auto span = opentracing::Tracer::Global()->StartSpan(
       "compose_text_client", {opentracing::ChildOf(parent_span->get())});
-  std::map<std::string, std::string> writer_text_map;
-  TextMapWriter writer(writer_text_map);
-  opentracing::Tracer::Global()->Inject(span->context(), writer);
 
   auto text_client_wrapper = _text_service_client_pool->Pop();
   if (!text_client_wrapper) {
@@ -161,14 +159,23 @@ TextServiceReturn ComposePostHandler::_ComposeTextHelper(
     se.errorCode = ErrorCode::SE_THRIFT_CONN_ERROR;
     se.message = "Failed to connect to text-service";
     LOG(error) << se.message;
-    ;
     span->Finish();
     throw se;
   }
 
+  int64_t connection_id = static_cast<int64_t>(
+      reinterpret_cast<uintptr_t>(text_client_wrapper));
+  const std::string connection_id_str = std::to_string(connection_id);
+  span->SetBaggageItem("connection_id", connection_id_str);
+
+  std::map<std::string, std::string> writer_text_map;
+  TextMapWriter writer(writer_text_map);
+  opentracing::Tracer::Global()->Inject(span->context(), writer);
+
   auto text_client = text_client_wrapper->GetClient();
   TextServiceReturn _return_text;
   try {
+    span->Log({{"type", "call"}, {"connection_id", connection_id}});
     text_client->ComposeText(_return_text, req_id, text, writer_text_map);
   } catch (...) {
     LOG(error) << "Failed to send compose-text to text-service";
