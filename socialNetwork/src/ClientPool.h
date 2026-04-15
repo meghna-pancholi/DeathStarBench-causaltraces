@@ -81,7 +81,23 @@ template<class TClient>
 TClient * ClientPool<TClient>::Pop() {
   TClient * client = nullptr;
   {
+
+    // try lock 
+    // if (_mtx.try_lock()) {
+    // emit lock acquired event using _mtx pointer as the lock id 
+    // after doing the work, emit lock released event using _mtx pointer as the lock id 
+
+    // else
+    // emit suspend start event
+    // do cv_lock to wait for the lock to be released
+    // emit suspend stop event
+    // emit lock acquired event using _mtx pointer as the lock id 
+    // after doing the work, emit lock released event using _mtx pointer as the lock id  
+
+    // log start waiting for client
+
     std::unique_lock<std::mutex> cv_lock(_mtx);
+
     while (_pool.size() == 0 && _curr_pool_size == _max_pool_size) {
       // Create a new a client if current pool size is less than
       // the max pool size.

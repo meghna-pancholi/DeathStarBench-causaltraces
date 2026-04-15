@@ -434,11 +434,24 @@ void ComposePostHandler::ComposePost(
       req_id, post.post_id, user_id, timestamp, user_mention_ids,
       writer_text_map);
 
+
+  // We start waiting for the futures to complete. 
+  span->Log({{"type", "suspend_start"}});
+
   // try
   // {
   post_future.get();
+  span->Log({{"type", "suspend_stop"}});
+  span->Log({{"type", "suspend_start"}});
+  // Stop wait and start waiting again. 
   user_timeline_future.get();
+  span->Log({{"type", "suspend_stop"}});
+  span->Log({{"type", "suspend_start"}});
+  // Stop wait and start waiting again. 
   home_timeline_future.get();
+  
+  // Stop waiting. 
+  span->Log({{"type", "suspend_stop"}});
   // }
   // catch (...)
   // {
