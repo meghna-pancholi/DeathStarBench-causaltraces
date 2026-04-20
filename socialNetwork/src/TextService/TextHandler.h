@@ -99,7 +99,7 @@ namespace social_network
     TextMapWriter url_writer(url_writer_text_map);
     opentracing::Tracer::Global()->Inject(url_span->context(), url_writer);
 
-    auto url_client_wrapper = _url_client_pool->Pop();
+    auto url_client_wrapper = _url_client_pool->Pop(url_span.get());
     if (!url_client_wrapper) {
       ServiceException se;
       se.errorCode = ErrorCode::SE_THRIFT_CONN_ERROR;
@@ -129,7 +129,7 @@ namespace social_network
     opentracing::Tracer::Global()->Inject(user_mention_span->context(),
                                           user_mention_writer);
 
-    auto user_mention_client_wrapper = _user_mention_client_pool->Pop();
+    auto user_mention_client_wrapper = _user_mention_client_pool->Pop(user_mention_span.get());
     if (!user_mention_client_wrapper) {
       ServiceException se;
       se.errorCode = ErrorCode::SE_THRIFT_CONN_ERROR;

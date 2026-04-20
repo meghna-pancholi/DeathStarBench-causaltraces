@@ -210,7 +210,7 @@ void UserHandler::RegisterUserWithId(
   mongoc_client_pool_push(_mongodb_client_pool, mongodb_client);
 
   if (!found) {
-    auto social_graph_client_wrapper = _social_graph_client_pool->Pop();
+    auto social_graph_client_wrapper = _social_graph_client_pool->Pop(span.get());
     if (!social_graph_client_wrapper) {
       ServiceException se;
       se.errorCode = ErrorCode::SE_THRIFT_CONN_ERROR;
@@ -360,7 +360,7 @@ void UserHandler::RegisterUser(
   mongoc_client_pool_push(_mongodb_client_pool, mongodb_client);
 
   if (!found) {
-    auto social_graph_client_wrapper = _social_graph_client_pool->Pop();
+    auto social_graph_client_wrapper = _social_graph_client_pool->Pop(span.get());
     if (!social_graph_client_wrapper) {
       ServiceException se;
       se.errorCode = ErrorCode::SE_THRIFT_CONN_ERROR;

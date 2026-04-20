@@ -115,7 +115,7 @@ void HomeTimelineHandler::WriteHomeTimeline(
   TextMapWriter writer(writer_text_map);
   opentracing::Tracer::Global()->Inject(followers_span->context(), writer);
 
-  auto social_graph_client_wrapper = _social_graph_client_pool->Pop();
+  auto social_graph_client_wrapper = _social_graph_client_pool->Pop(followers_span.get());
   if (!social_graph_client_wrapper) {
     ServiceException se;
     se.errorCode = ErrorCode::SE_THRIFT_CONN_ERROR;
@@ -264,7 +264,7 @@ void HomeTimelineHandler::ReadHomeTimeline(
     post_ids.emplace_back(std::stoul(post_id_str));
   }
 
-  auto post_client_wrapper = _post_client_pool->Pop();
+  auto post_client_wrapper = _post_client_pool->Pop(span.get());
   if (!post_client_wrapper) {
     ServiceException se;
     se.errorCode = ErrorCode::SE_THRIFT_CONN_ERROR;

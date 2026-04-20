@@ -7,164 +7,279 @@
 #include <deque>
 #include <chrono>
 #include <string>
+#include <cstdint>
 #include <nlohmann/json.hpp>
 
 #include "logger.h"
 
-namespace social_network {
-using json = nlohmann::json;
+namespace social_network
+{
+  using json = nlohmann::json;
 
-template<class TClient>
-class ClientPool {
- public:
-  ClientPool(const std::string &client_type, const std::string &addr,
-      int port, int min_size, int max_size, int timeout_ms, int keepalive_ms,
-      const json &config_json);
-  ~ClientPool();
-
-  ClientPool(const ClientPool&) = delete;
-  ClientPool& operator=(const ClientPool&) = delete;
-  ClientPool(ClientPool&&) = default;
-  ClientPool& operator=(ClientPool&&) = default;
-
-  TClient * Pop();
-  void Push(TClient *);
-  void Keepalive(TClient *);
-  void Remove(TClient *);
-
- private:
-  std::deque<TClient *> _pool;
-  std::string _addr;
-  std::string _client_type;
-  int _port;
-  int _min_pool_size{};
-  int _max_pool_size{};
-  int _curr_pool_size{};
-  int _timeout_ms;
-  int _keepalive_ms;
-  std::mutex _mtx;
-  std::condition_variable _cv;
-  const json *_config_json;
-
-};
-
-template<class TClient>
-ClientPool<TClient>::ClientPool(const std::string &client_type,
-    const std::string &addr, int port, int min_pool_size,
-    int max_pool_size, int timeout_ms, int keepalive_ms,
-    const json &config_json) {
-  _addr = addr;
-  _port = port;
-  _min_pool_size = min_pool_size;
-  _max_pool_size = max_pool_size;
-  _timeout_ms = timeout_ms;
-  _client_type = client_type;
-  _keepalive_ms = keepalive_ms;
-  _config_json = &config_json;
-
-  for (int i = 0; i < min_pool_size; ++i) {
-    TClient *client = new TClient(addr, port, keepalive_ms, config_json);
-    _pool.emplace_back(client);
-  }
-  _curr_pool_size = min_pool_size;
-}
-
-template<class TClient>
-ClientPool<TClient>::~ClientPool() {
-  while (!_pool.empty()) {
-    delete _pool.front();
-    _pool.pop_front();
-  }
-}
-
-template<class TClient>
-TClient * ClientPool<TClient>::Pop() {
-  TClient * client = nullptr;
+  template <class TClient>
+  class ClientPool
   {
+  public:
+    ClientPool(const std::string &client_type, const std::string &addr,
+               int port, int min_size, int max_size, int timeout_ms, int keepalive_ms,
+               const json &config_json);
+    ~ClientPool();
 
-    // try lock 
-    // if (_mtx.try_lock()) {
-    // emit lock acquired event using _mtx pointer as the lock id 
-    // after doing the work, emit lock released event using _mtx pointer as the lock id 
+    ClientPool(const ClientPool &) = delete;
+    ClientPool &operator=(const ClientPool &) = delete;
+    ClientPool(ClientPool &&) = default;
+    ClientPool &operator=(ClientPool &&) = default;
 
-    // else
-    // emit suspend start event
-    // do cv_lock to wait for the lock to be released
-    // emit suspend stop event
-    // emit lock acquired event using _mtx pointer as the lock id 
-    // after doing the work, emit lock released event using _mtx pointer as the lock id  
+    TClient *Pop();
+    template <class TSpan>
+    TClient *Pop(TSpan *span);
+    void Push(TClient *);
+    void Keepalive(TClient *);
+    void Remove(TClient *);
 
-    // log start waiting for client
+  private:
+    std::deque<TClient *> _pool;
+    std::string _addr;
+    std::string _client_type;
+    int _port;
+    int _min_pool_size{};
+    int _max_pool_size{};
+    int _curr_pool_size{};
+    int _timeout_ms;
+    int _keepalive_ms;
+    std::mutex _mtx;
+    std::condition_variable _cv;
+    const json *_config_json;
+  };
 
-    std::unique_lock<std::mutex> cv_lock(_mtx);
+  template <class TClient>
+  ClientPool<TClient>::ClientPool(const std::string &client_type,
+                                  const std::string &addr, int port, int min_pool_size,
+                                  int max_pool_size, int timeout_ms, int keepalive_ms,
+                                  const json &config_json)
+  {
+    _addr = addr;
+    _port = port;
+    _min_pool_size = min_pool_size;
+    _max_pool_size = max_pool_size;
+    _timeout_ms = timeout_ms;
+    _client_type = client_type;
+    _keepalive_ms = keepalive_ms;
+    _config_json = &config_json;
 
-    while (_pool.size() == 0 && _curr_pool_size == _max_pool_size) {
-      // Create a new a client if current pool size is less than
-      // the max pool size.
-      auto wait_time = std::chrono::system_clock::now() +
-          std::chrono::milliseconds(_timeout_ms);
-      bool wait_success = _cv.wait_until(cv_lock, wait_time,
-            [this] { return _pool.size() > 0 || _curr_pool_size < _max_pool_size; });
-      if (!wait_success) {
-        LOG(warning) << "ClientPool pop timeout";
-        LOG(info) << _pool.size() << " " << _curr_pool_size;
-        cv_lock.unlock();
-        return nullptr;
+    for (int i = 0; i < min_pool_size; ++i)
+    {
+      TClient *client = new TClient(addr, port, keepalive_ms, config_json);
+      _pool.emplace_back(client);
+    }
+    _curr_pool_size = min_pool_size;
+  }
+
+  template <class TClient>
+  ClientPool<TClient>::~ClientPool()
+  {
+    while (!_pool.empty())
+    {
+      delete _pool.front();
+      _pool.pop_front();
+    }
+  }
+
+  template <class TClient>
+  TClient *ClientPool<TClient>::Pop()
+  {
+    TClient *client = nullptr;
+    const auto lock_id =
+        static_cast<unsigned long long>(reinterpret_cast<uintptr_t>(&_mtx));
+    const auto emit_event = [&](const std::string &type)
+    {
+      LOG(info) << "type=" << type << " lock_id=" << lock_id;
+    };
+    {
+      std::unique_lock<std::mutex> cv_lock;
+      if (_mtx.try_lock())
+      {
+        cv_lock = std::unique_lock<std::mutex>(_mtx, std::adopt_lock);
+        emit_event("lock_acquired");
+      }
+      else
+      {
+        emit_event("suspend_start");
+        cv_lock = std::unique_lock<std::mutex>(_mtx);
+        emit_event("suspend_stop");
+        emit_event("lock_acquired");
+      }
+
+      emit_event("pool_wait_start");
+
+      while (_pool.size() == 0 && _curr_pool_size == _max_pool_size)
+      {
+        // Create a new a client if current pool size is less than
+        // the max pool size.
+        auto wait_time = std::chrono::system_clock::now() +
+                         std::chrono::milliseconds(_timeout_ms);
+        emit_event("suspend_start");
+        bool wait_success = _cv.wait_until(cv_lock, wait_time,
+                                           [this]
+                                           { return _pool.size() > 0 || _curr_pool_size < _max_pool_size; });
+        emit_event("suspend_stop");
+        if (!wait_success)
+        {
+          LOG(warning) << "ClientPool pop timeout";
+          LOG(info) << _pool.size() << " " << _curr_pool_size;
+          emit_event("lock_released");
+          cv_lock.unlock();
+          return nullptr;
+        }
+      }
+      if (_pool.size() > 0)
+      {
+        client = _pool.front();
+        _pool.pop_front();
+      }
+      else
+      {
+        client = new TClient(_addr, _port, _keepalive_ms, *_config_json);
+        _curr_pool_size++;
+      }
+      emit_event("lock_released");
+      cv_lock.unlock();
+    } // cv_lock(_mtx)
+
+    if (client)
+    {
+      try
+      {
+        client->Connect();
+      }
+      catch (...)
+      {
+        LOG(error) << "Failed to connect " + _client_type;
+        Remove(client);
+        throw;
       }
     }
-    if (_pool.size() > 0) {
-      client = _pool.front();
-      _pool.pop_front();
-    } else {
-      client = new TClient(_addr, _port, _keepalive_ms, *_config_json);
-      _curr_pool_size++;
+    return client;
+  }
+
+  template <class TClient>
+  template <class TSpan>
+  TClient *ClientPool<TClient>::Pop(TSpan *span)
+  {
+    if (!span)
+    {
+      return Pop();
     }
-  cv_lock.unlock();
-  } // cv_lock(_mtx)
 
+    TClient *client = nullptr;
+    const auto lock_id =
+        static_cast<unsigned long long>(reinterpret_cast<uintptr_t>(&_mtx));
+    const auto emit_event = [&](const std::string &type)
+    {
+      span->Log({{"type", type}, {"lock_id", std::to_string(lock_id)}});
+    };
 
-  if (client) {
-    try {
-      client->Connect();
-    } catch (...) {
-      LOG(error) << "Failed to connect " + _client_type;
+    {
+      std::unique_lock<std::mutex> cv_lock;
+      if (_mtx.try_lock())
+      {
+        cv_lock = std::unique_lock<std::mutex>(_mtx, std::adopt_lock);
+        emit_event("lock_acquired");
+      }
+      else
+      {
+        emit_event("suspend_start");
+        cv_lock = std::unique_lock<std::mutex>(_mtx);
+        emit_event("suspend_stop");
+        emit_event("lock_acquired");
+      }
+
+      emit_event("pool_wait_start");
+
+      while (_pool.size() == 0 && _curr_pool_size == _max_pool_size)
+      {
+        auto wait_time = std::chrono::system_clock::now() +
+                         std::chrono::milliseconds(_timeout_ms);
+        emit_event("suspend_start");
+        bool wait_success = _cv.wait_until(cv_lock, wait_time,
+                                           [this]
+                                           { return _pool.size() > 0 || _curr_pool_size < _max_pool_size; });
+        emit_event("suspend_stop");
+        if (!wait_success)
+        {
+          LOG(warning) << "ClientPool pop timeout";
+          LOG(info) << _pool.size() << " " << _curr_pool_size;
+          emit_event("lock_released");
+          cv_lock.unlock();
+          return nullptr;
+        }
+      }
+      if (_pool.size() > 0)
+      {
+        client = _pool.front();
+        _pool.pop_front();
+      }
+      else
+      {
+        client = new TClient(_addr, _port, _keepalive_ms, *_config_json);
+        _curr_pool_size++;
+      }
+      emit_event("lock_released");
+      cv_lock.unlock();
+    } // cv_lock(_mtx)
+
+    if (client)
+    {
+      try
+      {
+        client->Connect();
+      }
+      catch (...)
+      {
+        LOG(error) << "Failed to connect " + _client_type;
+        Remove(client);
+        throw;
+      }
+    }
+    return client;
+  }
+
+  template <class TClient>
+  void ClientPool<TClient>::Push(TClient *client)
+  {
+    std::unique_lock<std::mutex> cv_lock(_mtx);
+    _pool.push_back(client);
+    cv_lock.unlock();
+    _cv.notify_one();
+  }
+
+  template <class TClient>
+  void ClientPool<TClient>::Remove(TClient *client)
+  {
+    // No need to delete it from _pool because the *client has been poped out
+    delete client;
+    std::unique_lock<std::mutex> cv_lock(_mtx);
+    _curr_pool_size--;
+    cv_lock.unlock();
+    _cv.notify_one();
+  }
+
+  template <class TClient>
+  void ClientPool<TClient>::Keepalive(TClient *client)
+  {
+    long curr_timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
+                              std::chrono::system_clock::now().time_since_epoch())
+                              .count();
+    if (curr_timestamp - client->_connect_timestamp > client->_keepalive_ms)
+    {
       Remove(client);
-      throw;
+    }
+    else
+    {
+      Push(client);
     }
   }
-  return client;
-}
-
-template<class TClient>
-void ClientPool<TClient>::Push(TClient *client) {
-  std::unique_lock<std::mutex> cv_lock(_mtx);
-  _pool.push_back(client);
-  cv_lock.unlock();
-  _cv.notify_one();
-}
-
-template<class TClient>
-void ClientPool<TClient>::Remove(TClient *client) {
-  // No need to delete it from _pool because the *client has been poped out
-  delete client;
-  std::unique_lock<std::mutex> cv_lock(_mtx);
-  _curr_pool_size--;
-  cv_lock.unlock();
-  _cv.notify_one();
-}
-
-template<class TClient>
-void ClientPool<TClient>::Keepalive(TClient *client) {
-  long curr_timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(
-          std::chrono::system_clock::now().time_since_epoch()).count();
-  if (curr_timestamp - client->_connect_timestamp > client->_keepalive_ms) {
-    Remove(client);
-  } else {
-    Push(client);
-  }
-}
 
 } // namespace social_network
 
-
-#endif //SOCIAL_NETWORK_MICROSERVICES_CLIENTPOOL_H
+#endif // SOCIAL_NETWORK_MICROSERVICES_CLIENTPOOL_H

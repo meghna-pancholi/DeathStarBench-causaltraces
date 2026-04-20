@@ -308,7 +308,7 @@ void UserTimelineHandler::ReadUserTimeline(
 
   std::future<std::vector<Post>> post_future =
       std::async(std::launch::async, [&]() {
-        auto post_client_wrapper = _post_client_pool->Pop();
+        auto post_client_wrapper = _post_client_pool->Pop(span.get());
         if (!post_client_wrapper) {
           ServiceException se;
           se.errorCode = ErrorCode::SE_THRIFT_CONN_ERROR;

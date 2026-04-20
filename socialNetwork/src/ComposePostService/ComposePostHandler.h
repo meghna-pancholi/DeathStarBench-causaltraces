@@ -121,7 +121,7 @@ Creator ComposePostHandler::_ComposeCreaterHelper(
   TextMapWriter writer(writer_text_map);
   opentracing::Tracer::Global()->Inject(span->context(), writer);
 
-  auto user_client_wrapper = _user_service_client_pool->Pop();
+  auto user_client_wrapper = _user_service_client_pool->Pop(span.get());
   if (!user_client_wrapper) {
     ServiceException se;
     se.errorCode = ErrorCode::SE_THRIFT_CONN_ERROR;
@@ -163,7 +163,7 @@ TextServiceReturn ComposePostHandler::_ComposeTextHelper(
   const auto connection_id = GetConnectionIdFromSpan(*span);
   span->Log({{"type", "start"}, {"connection_id", connection_id}});
 
-  auto text_client_wrapper = _text_service_client_pool->Pop();
+  auto text_client_wrapper = _text_service_client_pool->Pop(span.get());
   if (!text_client_wrapper) {
     ServiceException se;
     se.errorCode = ErrorCode::SE_THRIFT_CONN_ERROR;
@@ -218,7 +218,7 @@ std::vector<Media> ComposePostHandler::_ComposeMediaHelper(
   TextMapWriter writer(writer_text_map);
   opentracing::Tracer::Global()->Inject(span->context(), writer);
 
-  auto media_client_wrapper = _media_service_client_pool->Pop();
+  auto media_client_wrapper = _media_service_client_pool->Pop(span.get());
   if (!media_client_wrapper) {
     ServiceException se;
     se.errorCode = ErrorCode::SE_THRIFT_CONN_ERROR;
@@ -264,7 +264,7 @@ int64_t ComposePostHandler::_ComposeUniqueIdHelper(
   TextMapWriter writer(writer_text_map);
   opentracing::Tracer::Global()->Inject(span->context(), writer);
 
-  auto unique_id_client_wrapper = _unique_id_service_client_pool->Pop();
+  auto unique_id_client_wrapper = _unique_id_service_client_pool->Pop(span.get());
   if (!unique_id_client_wrapper) {
     ServiceException se;
     se.errorCode = ErrorCode::SE_THRIFT_CONN_ERROR;
@@ -309,7 +309,7 @@ void ComposePostHandler::_UploadPostHelper(
   TextMapWriter writer(writer_text_map);
   opentracing::Tracer::Global()->Inject(span->context(), writer);
 
-  auto post_storage_client_wrapper = _post_storage_client_pool->Pop();
+  auto post_storage_client_wrapper = _post_storage_client_pool->Pop(span.get());
   if (!post_storage_client_wrapper) {
     ServiceException se;
     se.errorCode = ErrorCode::SE_THRIFT_CONN_ERROR;
@@ -345,7 +345,7 @@ void ComposePostHandler::_UploadUserTimelineHelper(
   TextMapWriter writer(writer_text_map);
   opentracing::Tracer::Global()->Inject(span->context(), writer);
 
-  auto user_timeline_client_wrapper = _user_timeline_client_pool->Pop();
+  auto user_timeline_client_wrapper = _user_timeline_client_pool->Pop(span.get());
   if (!user_timeline_client_wrapper) {
     ServiceException se;
     se.errorCode = ErrorCode::SE_THRIFT_CONN_ERROR;
@@ -382,7 +382,7 @@ void ComposePostHandler::_UploadHomeTimelineHelper(
   TextMapWriter writer(writer_text_map);
   opentracing::Tracer::Global()->Inject(span->context(), writer);
 
-  auto home_timeline_client_wrapper = _home_timeline_client_pool->Pop();
+  auto home_timeline_client_wrapper = _home_timeline_client_pool->Pop(span.get());
   if (!home_timeline_client_wrapper) {
     ServiceException se;
     se.errorCode = ErrorCode::SE_THRIFT_CONN_ERROR;

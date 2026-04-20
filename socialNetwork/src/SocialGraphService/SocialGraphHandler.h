@@ -856,7 +856,7 @@ void SocialGraphHandler::FollowWithUsername(
   opentracing::Tracer::Global()->Inject(span->context(), writer);
 
   std::future<int64_t> user_id_future = std::async(std::launch::async, [&]() {
-    auto user_client_wrapper = _user_service_client_pool->Pop();
+    auto user_client_wrapper = _user_service_client_pool->Pop(span.get());
     if (!user_client_wrapper) {
       ServiceException se;
       se.errorCode = ErrorCode::SE_THRIFT_CONN_ERROR;
@@ -878,7 +878,7 @@ void SocialGraphHandler::FollowWithUsername(
 
   std::future<int64_t> followee_id_future =
       std::async(std::launch::async, [&]() {
-        auto user_client_wrapper = _user_service_client_pool->Pop();
+        auto user_client_wrapper = _user_service_client_pool->Pop(span.get());
         if (!user_client_wrapper) {
           ServiceException se;
           se.errorCode = ErrorCode::SE_THRIFT_CONN_ERROR;
@@ -934,7 +934,7 @@ void SocialGraphHandler::UnfollowWithUsername(
   opentracing::Tracer::Global()->Inject(span->context(), writer);
 
   std::future<int64_t> user_id_future = std::async(std::launch::async, [&]() {
-    auto user_client_wrapper = _user_service_client_pool->Pop();
+    auto user_client_wrapper = _user_service_client_pool->Pop(span.get());
     if (!user_client_wrapper) {
       ServiceException se;
       se.errorCode = ErrorCode::SE_THRIFT_CONN_ERROR;
@@ -956,7 +956,7 @@ void SocialGraphHandler::UnfollowWithUsername(
 
   std::future<int64_t> followee_id_future =
       std::async(std::launch::async, [&]() {
-        auto user_client_wrapper = _user_service_client_pool->Pop();
+        auto user_client_wrapper = _user_service_client_pool->Pop(span.get());
         if (!user_client_wrapper) {
           ServiceException se;
           se.errorCode = ErrorCode::SE_THRIFT_CONN_ERROR;
