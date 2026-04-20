@@ -55,6 +55,8 @@ void PostStorageHandler::StorePost(
   auto parent_span = opentracing::Tracer::Global()->Extract(reader);
   auto span = opentracing::Tracer::Global()->StartSpan(
       "store_post_server", {opentracing::ChildOf(parent_span->get())});
+  const auto connection_id = GetConnectionIdFromSpan(*span);
+  span->Log({{"type", "start"}, {"connection_id", connection_id}});
   opentracing::Tracer::Global()->Inject(span->context(), writer);
 
   mongoc_client_t *mongodb_client =
@@ -158,6 +160,7 @@ void PostStorageHandler::StorePost(
   mongoc_collection_destroy(collection);
   mongoc_client_pool_push(_mongodb_client_pool, mongodb_client);
 
+  span->Log({{"type", "finish"}, {"connection_id", connection_id}});
   span->Finish();
 }
 
@@ -171,6 +174,8 @@ void PostStorageHandler::ReadPost(
   auto parent_span = opentracing::Tracer::Global()->Extract(reader);
   auto span = opentracing::Tracer::Global()->StartSpan(
       "read_post_server", {opentracing::ChildOf(parent_span->get())});
+  const auto connection_id = GetConnectionIdFromSpan(*span);
+  span->Log({{"type", "start"}, {"connection_id", connection_id}});
   opentracing::Tracer::Global()->Inject(span->context(), writer);
 
   std::string post_id_str = std::to_string(post_id);
@@ -348,6 +353,7 @@ void PostStorageHandler::ReadPost(
     }
   }
 
+  span->Log({{"type", "finish"}, {"connection_id", connection_id}});
   span->Finish();
 }
 void PostStorageHandler::ReadPosts(
@@ -362,6 +368,8 @@ void PostStorageHandler::ReadPosts(
   auto span = opentracing::Tracer::Global()->StartSpan(
       "post_storage_read_posts_server",
       {opentracing::ChildOf(parent_span->get())});
+  const auto connection_id = GetConnectionIdFromSpan(*span);
+  span->Log({{"type", "start"}, {"connection_id", connection_id}});
   opentracing::Tracer::Global()->Inject(span->context(), writer);
 
   if (post_ids.empty()) {

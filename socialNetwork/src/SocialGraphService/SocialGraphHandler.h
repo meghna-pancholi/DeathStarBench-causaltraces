@@ -110,6 +110,8 @@ void SocialGraphHandler::Follow(
   auto parent_span = opentracing::Tracer::Global()->Extract(reader);
   auto span = opentracing::Tracer::Global()->StartSpan(
       "follow_server", {opentracing::ChildOf(parent_span->get())});
+  const auto connection_id = GetConnectionIdFromSpan(*span);
+  span->Log({{"type", "start"}, {"connection_id", connection_id}});
   opentracing::Tracer::Global()->Inject(span->context(), writer);
 
   int64_t timestamp =
@@ -297,6 +299,7 @@ void SocialGraphHandler::Follow(
     throw;
   }
 
+  span->Log({{"type", "finish"}, {"connection_id", connection_id}});
   span->Finish();
 }
 
@@ -310,6 +313,8 @@ void SocialGraphHandler::Unfollow(
   auto parent_span = opentracing::Tracer::Global()->Extract(reader);
   auto span = opentracing::Tracer::Global()->StartSpan(
       "unfollow_server", {opentracing::ChildOf(parent_span->get())});
+  const auto connection_id = GetConnectionIdFromSpan(*span);
+  span->Log({{"type", "start"}, {"connection_id", connection_id}});
   opentracing::Tracer::Global()->Inject(span->context(), writer);
 
   std::future<void> mongo_update_follower_future =
@@ -479,6 +484,7 @@ void SocialGraphHandler::Unfollow(
     throw;
   }
 
+  span->Log({{"type", "finish"}, {"connection_id", connection_id}});
   span->Finish();
 }
 
@@ -492,6 +498,8 @@ void SocialGraphHandler::GetFollowers(
   auto parent_span = opentracing::Tracer::Global()->Extract(reader);
   auto span = opentracing::Tracer::Global()->StartSpan(
       "get_followers_server", {opentracing::ChildOf(parent_span->get())});
+  const auto connection_id = GetConnectionIdFromSpan(*span);
+  span->Log({{"type", "start"}, {"connection_id", connection_id}});
   opentracing::Tracer::Global()->Inject(span->context(), writer);
 
   auto redis_span = opentracing::Tracer::Global()->StartSpan(
@@ -617,6 +625,8 @@ void SocialGraphHandler::GetFollowers(
       mongoc_client_pool_push(_mongodb_client_pool, mongodb_client);
     }
   }
+  span->Log({{"type", "finish"}, {"connection_id", connection_id}});
+
   span->Finish();
 }
 
@@ -630,6 +640,8 @@ void SocialGraphHandler::GetFollowees(
   auto parent_span = opentracing::Tracer::Global()->Extract(reader);
   auto span = opentracing::Tracer::Global()->StartSpan(
       "get_followees_server", {opentracing::ChildOf(parent_span->get())});
+  const auto connection_id = GetConnectionIdFromSpan(*span);
+  span->Log({{"type", "start"}, {"connection_id", connection_id}});
   opentracing::Tracer::Global()->Inject(span->context(), writer);
 
   auto redis_span = opentracing::Tracer::Global()->StartSpan(
@@ -762,6 +774,8 @@ void SocialGraphHandler::GetFollowees(
       redis_span->Finish();
     }
   }
+  span->Log({{"type", "finish"}, {"connection_id", connection_id}});
+
   span->Finish();
 }
 
@@ -775,6 +789,8 @@ void SocialGraphHandler::InsertUser(
   auto parent_span = opentracing::Tracer::Global()->Extract(reader);
   auto span = opentracing::Tracer::Global()->StartSpan(
       "insert_user_server", {opentracing::ChildOf(parent_span->get())});
+  const auto connection_id = GetConnectionIdFromSpan(*span);
+  span->Log({{"type", "start"}, {"connection_id", connection_id}});
   opentracing::Tracer::Global()->Inject(span->context(), writer);
 
   mongoc_client_t *mongodb_client =
@@ -818,6 +834,8 @@ void SocialGraphHandler::InsertUser(
   bson_destroy(new_doc);
   mongoc_collection_destroy(collection);
   mongoc_client_pool_push(_mongodb_client_pool, mongodb_client);
+  span->Log({{"type", "finish"}, {"connection_id", connection_id}});
+
   span->Finish();
 }
 
@@ -833,6 +851,8 @@ void SocialGraphHandler::FollowWithUsername(
   auto span = opentracing::Tracer::Global()->StartSpan(
       "follow_with_username_server",
       {opentracing::ChildOf(parent_span->get())});
+  const auto connection_id = GetConnectionIdFromSpan(*span);
+  span->Log({{"type", "start"}, {"connection_id", connection_id}});
   opentracing::Tracer::Global()->Inject(span->context(), writer);
 
   std::future<int64_t> user_id_future = std::async(std::launch::async, [&]() {
@@ -892,6 +912,8 @@ void SocialGraphHandler::FollowWithUsername(
   if (user_id >= 0 && followee_id >= 0) {
     Follow(req_id, user_id, followee_id, writer_text_map);
   }
+  span->Log({{"type", "finish"}, {"connection_id", connection_id}});
+
   span->Finish();
 }
 
@@ -907,6 +929,8 @@ void SocialGraphHandler::UnfollowWithUsername(
   auto span = opentracing::Tracer::Global()->StartSpan(
       "unfollow_with_username_server",
       {opentracing::ChildOf(parent_span->get())});
+  const auto connection_id = GetConnectionIdFromSpan(*span);
+  span->Log({{"type", "start"}, {"connection_id", connection_id}});
   opentracing::Tracer::Global()->Inject(span->context(), writer);
 
   std::future<int64_t> user_id_future = std::async(std::launch::async, [&]() {
@@ -969,6 +993,8 @@ void SocialGraphHandler::UnfollowWithUsername(
       throw;
     }
   }
+  span->Log({{"type", "finish"}, {"connection_id", connection_id}});
+
   span->Finish();
 }
 

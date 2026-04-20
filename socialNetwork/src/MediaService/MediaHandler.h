@@ -39,6 +39,8 @@ void MediaHandler::ComposeMedia(
   auto parent_span = opentracing::Tracer::Global()->Extract(reader);
   auto span = opentracing::Tracer::Global()->StartSpan(
       "compose_media_server", {opentracing::ChildOf(parent_span->get())});
+  const auto connection_id = GetConnectionIdFromSpan(*span);
+  span->Log({{"type", "start"}, {"connection_id", connection_id}});
   opentracing::Tracer::Global()->Inject(span->context(), writer);
 
   if (media_types.size() != media_ids.size()) {
@@ -56,6 +58,7 @@ void MediaHandler::ComposeMedia(
     _return.emplace_back(new_media);
   }
 
+  span->Log({{"type", "finish"}, {"connection_id", connection_id}});
   span->Finish();
 }
 

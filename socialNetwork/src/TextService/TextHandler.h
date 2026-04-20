@@ -196,6 +196,7 @@ namespace social_network
     _return.text = updated_text;
     _return.urls = target_urls;
     span->Log({{"type", "finish"}, {"connection_id", connection_id}});
+
     span->Finish();
   }
 

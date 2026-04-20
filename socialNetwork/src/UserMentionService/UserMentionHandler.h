@@ -48,6 +48,8 @@ void UserMentionHandler::ComposeUserMentions(
   auto span = opentracing::Tracer::Global()->StartSpan(
       "compose_user_mentions_server",
       {opentracing::ChildOf(parent_span->get())});
+  const auto connection_id = GetConnectionIdFromSpan(*span);
+  span->Log({{"type", "start"}, {"connection_id", connection_id}});
   opentracing::Tracer::Global()->Inject(span->context(), writer);
 
   std::vector<UserMention> user_mentions;
@@ -227,6 +229,8 @@ void UserMentionHandler::ComposeUserMentions(
   }
 
   _return = user_mentions;
+  span->Log({{"type", "finish"}, {"connection_id", connection_id}});
+
   span->Finish();
 }
 

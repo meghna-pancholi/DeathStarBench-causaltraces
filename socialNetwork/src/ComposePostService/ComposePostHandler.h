@@ -115,6 +115,8 @@ Creator ComposePostHandler::_ComposeCreaterHelper(
   auto parent_span = opentracing::Tracer::Global()->Extract(reader);
   auto span = opentracing::Tracer::Global()->StartSpan(
       "compose_creator_client", {opentracing::ChildOf(parent_span->get())});
+  const auto connection_id = GetConnectionIdFromSpan(*span);
+  span->Log({{"type", "start"}, {"connection_id", connection_id}});
   std::map<std::string, std::string> writer_text_map;
   TextMapWriter writer(writer_text_map);
   opentracing::Tracer::Global()->Inject(span->context(), writer);
@@ -125,6 +127,8 @@ Creator ComposePostHandler::_ComposeCreaterHelper(
     se.errorCode = ErrorCode::SE_THRIFT_CONN_ERROR;
     se.message = "Failed to connect to user-service";
     LOG(error) << se.message;
+    span->Log({{"type", "finish"}, {"connection_id", connection_id}});
+
     span->Finish();
     throw se;
   }
@@ -137,10 +141,14 @@ Creator ComposePostHandler::_ComposeCreaterHelper(
   } catch (...) {
     LOG(error) << "Failed to send compose-creator to user-service";
     _user_service_client_pool->Remove(user_client_wrapper);
+    span->Log({{"type", "finish"}, {"connection_id", connection_id}});
+
     span->Finish();
     throw;
   }
   _user_service_client_pool->Keepalive(user_client_wrapper);
+  span->Log({{"type", "finish"}, {"connection_id", connection_id}});
+
   span->Finish();
   return _return_creator;
 }
@@ -152,6 +160,8 @@ TextServiceReturn ComposePostHandler::_ComposeTextHelper(
   auto parent_span = opentracing::Tracer::Global()->Extract(reader);
   auto span = opentracing::Tracer::Global()->StartSpan(
       "compose_text_client", {opentracing::ChildOf(parent_span->get())});
+  const auto connection_id = GetConnectionIdFromSpan(*span);
+  span->Log({{"type", "start"}, {"connection_id", connection_id}});
 
   auto text_client_wrapper = _text_service_client_pool->Pop();
   if (!text_client_wrapper) {
@@ -159,6 +169,8 @@ TextServiceReturn ComposePostHandler::_ComposeTextHelper(
     se.errorCode = ErrorCode::SE_THRIFT_CONN_ERROR;
     se.message = "Failed to connect to text-service";
     LOG(error) << se.message;
+    span->Log({{"type", "finish"}, {"connection_id", connection_id}});
+
     span->Finish();
     throw se;
   }
@@ -180,10 +192,14 @@ TextServiceReturn ComposePostHandler::_ComposeTextHelper(
   } catch (...) {
     LOG(error) << "Failed to send compose-text to text-service";
     _text_service_client_pool->Remove(text_client_wrapper);
+    span->Log({{"type", "finish"}, {"connection_id", connection_id}});
+
     span->Finish();
     throw;
   }
   _text_service_client_pool->Keepalive(text_client_wrapper);
+  span->Log({{"type", "finish"}, {"connection_id", connection_id}});
+
   span->Finish();
   return _return_text;
 }
@@ -196,6 +212,8 @@ std::vector<Media> ComposePostHandler::_ComposeMediaHelper(
   auto parent_span = opentracing::Tracer::Global()->Extract(reader);
   auto span = opentracing::Tracer::Global()->StartSpan(
       "compose_media_client", {opentracing::ChildOf(parent_span->get())});
+  const auto connection_id = GetConnectionIdFromSpan(*span);
+  span->Log({{"type", "start"}, {"connection_id", connection_id}});
   std::map<std::string, std::string> writer_text_map;
   TextMapWriter writer(writer_text_map);
   opentracing::Tracer::Global()->Inject(span->context(), writer);
@@ -207,6 +225,8 @@ std::vector<Media> ComposePostHandler::_ComposeMediaHelper(
     se.message = "Failed to connect to media-service";
     LOG(error) << se.message;
     ;
+    span->Log({{"type", "finish"}, {"connection_id", connection_id}});
+
     span->Finish();
     throw se;
   }
@@ -219,10 +239,14 @@ std::vector<Media> ComposePostHandler::_ComposeMediaHelper(
   } catch (...) {
     LOG(error) << "Failed to send compose-media to media-service";
     _media_service_client_pool->Remove(media_client_wrapper);
+    span->Log({{"type", "finish"}, {"connection_id", connection_id}});
+
     span->Finish();
     throw;
   }
   _media_service_client_pool->Keepalive(media_client_wrapper);
+  span->Log({{"type", "finish"}, {"connection_id", connection_id}});
+
   span->Finish();
   return _return_media;
 }
@@ -234,6 +258,8 @@ int64_t ComposePostHandler::_ComposeUniqueIdHelper(
   auto parent_span = opentracing::Tracer::Global()->Extract(reader);
   auto span = opentracing::Tracer::Global()->StartSpan(
       "compose_unique_id_client", {opentracing::ChildOf(parent_span->get())});
+  const auto connection_id = GetConnectionIdFromSpan(*span);
+  span->Log({{"type", "start"}, {"connection_id", connection_id}});
   std::map<std::string, std::string> writer_text_map;
   TextMapWriter writer(writer_text_map);
   opentracing::Tracer::Global()->Inject(span->context(), writer);
@@ -244,6 +270,8 @@ int64_t ComposePostHandler::_ComposeUniqueIdHelper(
     se.errorCode = ErrorCode::SE_THRIFT_CONN_ERROR;
     se.message = "Failed to connect to unique_id-service";
     LOG(error) << se.message;
+    span->Log({{"type", "finish"}, {"connection_id", connection_id}});
+
     span->Finish();
     throw se;
   }
@@ -256,10 +284,14 @@ int64_t ComposePostHandler::_ComposeUniqueIdHelper(
   } catch (...) {
     LOG(error) << "Failed to send compose-unique_id to unique_id-service";
     _unique_id_service_client_pool->Remove(unique_id_client_wrapper);
+    span->Log({{"type", "finish"}, {"connection_id", connection_id}});
+
     span->Finish();
     throw;
   }
   _unique_id_service_client_pool->Keepalive(unique_id_client_wrapper);
+  span->Log({{"type", "finish"}, {"connection_id", connection_id}});
+
   span->Finish();
   return _return_unique_id;
 }
@@ -271,6 +303,8 @@ void ComposePostHandler::_UploadPostHelper(
   auto parent_span = opentracing::Tracer::Global()->Extract(reader);
   auto span = opentracing::Tracer::Global()->StartSpan(
       "store_post_client", {opentracing::ChildOf(parent_span->get())});
+  const auto connection_id = GetConnectionIdFromSpan(*span);
+  span->Log({{"type", "start"}, {"connection_id", connection_id}});
   std::map<std::string, std::string> writer_text_map;
   TextMapWriter writer(writer_text_map);
   opentracing::Tracer::Global()->Inject(span->context(), writer);
@@ -294,6 +328,7 @@ void ComposePostHandler::_UploadPostHelper(
   }
   _post_storage_client_pool->Keepalive(post_storage_client_wrapper);
 
+  span->Log({{"type", "finish"}, {"connection_id", connection_id}});
   span->Finish();
 }
 
@@ -304,6 +339,8 @@ void ComposePostHandler::_UploadUserTimelineHelper(
   auto parent_span = opentracing::Tracer::Global()->Extract(reader);
   auto span = opentracing::Tracer::Global()->StartSpan(
       "write_user_timeline_client", {opentracing::ChildOf(parent_span->get())});
+  const auto connection_id = GetConnectionIdFromSpan(*span);
+  span->Log({{"type", "start"}, {"connection_id", connection_id}});
   std::map<std::string, std::string> writer_text_map;
   TextMapWriter writer(writer_text_map);
   opentracing::Tracer::Global()->Inject(span->context(), writer);
@@ -327,6 +364,7 @@ void ComposePostHandler::_UploadUserTimelineHelper(
   }
   _user_timeline_client_pool->Keepalive(user_timeline_client_wrapper);
 
+  span->Log({{"type", "finish"}, {"connection_id", connection_id}});
   span->Finish();
 }
 
@@ -338,6 +376,8 @@ void ComposePostHandler::_UploadHomeTimelineHelper(
   auto parent_span = opentracing::Tracer::Global()->Extract(reader);
   auto span = opentracing::Tracer::Global()->StartSpan(
       "write_home_timeline_client", {opentracing::ChildOf(parent_span->get())});
+  const auto connection_id = GetConnectionIdFromSpan(*span);
+  span->Log({{"type", "start"}, {"connection_id", connection_id}});
   std::map<std::string, std::string> writer_text_map;
   TextMapWriter writer(writer_text_map);
   opentracing::Tracer::Global()->Inject(span->context(), writer);
@@ -362,6 +402,7 @@ void ComposePostHandler::_UploadHomeTimelineHelper(
   }
   _home_timeline_client_pool->Keepalive(home_timeline_client_wrapper);
 
+  span->Log({{"type", "finish"}, {"connection_id", connection_id}});
   span->Finish();
 }
 
@@ -374,6 +415,8 @@ void ComposePostHandler::ComposePost(
   auto parent_span = opentracing::Tracer::Global()->Extract(reader);
   auto span = opentracing::Tracer::Global()->StartSpan(
       "compose_post_server", {opentracing::ChildOf(parent_span->get())});
+  const auto connection_id = GetConnectionIdFromSpan(*span);
+  span->Log({{"type", "start"}, {"connection_id", connection_id}});
   std::map<std::string, std::string> writer_text_map;
   TextMapWriter writer(writer_text_map);
   opentracing::Tracer::Global()->Inject(span->context(), writer);
@@ -457,6 +500,8 @@ void ComposePostHandler::ComposePost(
   // {
   //   throw;
   // }
+  span->Log({{"type", "finish"}, {"connection_id", connection_id}});
+
   span->Finish();
 }
 

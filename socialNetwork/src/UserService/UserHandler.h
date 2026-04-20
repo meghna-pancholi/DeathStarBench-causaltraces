@@ -127,6 +127,8 @@ void UserHandler::RegisterUserWithId(
   auto span = opentracing::Tracer::Global()->StartSpan(
       "register_user_withid_server",
       {opentracing::ChildOf(parent_span->get())});
+  const auto connection_id = GetConnectionIdFromSpan(*span);
+  span->Log({{"type", "start"}, {"connection_id", connection_id}});
   opentracing::Tracer::Global()->Inject(span->context(), writer);
 
   // Store user info into mongodb
@@ -226,6 +228,7 @@ void UserHandler::RegisterUserWithId(
     _social_graph_client_pool->Keepalive(social_graph_client_wrapper);
   }
 
+  span->Log({{"type", "finish"}, {"connection_id", connection_id}});
   span->Finish();
 }
 
@@ -241,6 +244,8 @@ void UserHandler::RegisterUser(
   auto parent_span = opentracing::Tracer::Global()->Extract(reader);
   auto span = opentracing::Tracer::Global()->StartSpan(
       "register_user_server", {opentracing::ChildOf(parent_span->get())});
+  const auto connection_id = GetConnectionIdFromSpan(*span);
+  span->Log({{"type", "start"}, {"connection_id", connection_id}});
   opentracing::Tracer::Global()->Inject(span->context(), writer);
 
   // Compose user_id
@@ -374,6 +379,7 @@ void UserHandler::RegisterUser(
     _social_graph_client_pool->Keepalive(social_graph_client_wrapper);
   }
 
+  span->Log({{"type", "finish"}, {"connection_id", connection_id}});
   span->Finish();
 }
 
@@ -386,6 +392,8 @@ void UserHandler::ComposeCreatorWithUsername(
   auto parent_span = opentracing::Tracer::Global()->Extract(reader);
   auto span = opentracing::Tracer::Global()->StartSpan(
       "compose_creator_server", {opentracing::ChildOf(parent_span->get())});
+  const auto connection_id = GetConnectionIdFromSpan(*span);
+  span->Log({{"type", "start"}, {"connection_id", connection_id}});
   opentracing::Tracer::Global()->Inject(span->context(), writer);
 
   size_t user_id_size;
@@ -532,6 +540,8 @@ void UserHandler::ComposeCreatorWithUsername(
   } else {
     LOG(warning) << "Failed to pop a client from memcached pool";
   }
+  span->Log({{"type", "finish"}, {"connection_id", connection_id}});
+
   span->Finish();
 }
 
@@ -545,6 +555,8 @@ void UserHandler::ComposeCreatorWithUserId(
   auto parent_span = opentracing::Tracer::Global()->Extract(reader);
   auto span = opentracing::Tracer::Global()->StartSpan(
       "compose_creator_server", {opentracing::ChildOf(parent_span->get())});
+  const auto connection_id = GetConnectionIdFromSpan(*span);
+  span->Log({{"type", "start"}, {"connection_id", connection_id}});
   opentracing::Tracer::Global()->Inject(span->context(), writer);
 
   Creator creator;
@@ -553,6 +565,7 @@ void UserHandler::ComposeCreatorWithUserId(
 
   _return = creator;
 
+  span->Log({{"type", "finish"}, {"connection_id", connection_id}});
   span->Finish();
 }
 
@@ -566,6 +579,8 @@ void UserHandler::Login(std::string &_return, int64_t req_id,
   auto parent_span = opentracing::Tracer::Global()->Extract(reader);
   auto span = opentracing::Tracer::Global()->StartSpan(
       "login_server", {opentracing::ChildOf(parent_span->get())});
+  const auto connection_id = GetConnectionIdFromSpan(*span);
+  span->Log({{"type", "start"}, {"connection_id", connection_id}});
   opentracing::Tracer::Global()->Inject(span->context(), writer);
 
   size_t login_size;
@@ -744,6 +759,8 @@ void UserHandler::Login(std::string &_return, int64_t req_id,
       memcached_pool_push(_memcached_client_pool, memcached_client);
     }
   }
+  span->Log({{"type", "finish"}, {"connection_id", connection_id}});
+
   span->Finish();
 }
 int64_t UserHandler::GetUserId(
@@ -755,6 +772,8 @@ int64_t UserHandler::GetUserId(
   auto parent_span = opentracing::Tracer::Global()->Extract(reader);
   auto span = opentracing::Tracer::Global()->StartSpan(
       "get_user_id_server", {opentracing::ChildOf(parent_span->get())});
+  const auto connection_id = GetConnectionIdFromSpan(*span);
+  span->Log({{"type", "start"}, {"connection_id", connection_id}});
   opentracing::Tracer::Global()->Inject(span->context(), writer);
 
   size_t user_id_size;
@@ -892,6 +911,7 @@ int64_t UserHandler::GetUserId(
     }
   }
 
+  span->Log({{"type", "finish"}, {"connection_id", connection_id}});
   span->Finish();
   return user_id;
 }

@@ -105,6 +105,8 @@ void HomeTimelineHandler::WriteHomeTimeline(
   auto parent_span = opentracing::Tracer::Global()->Extract(reader);
   auto span = opentracing::Tracer::Global()->StartSpan(
       "write_home_timeline_server", {opentracing::ChildOf(parent_span->get())});
+  const auto connection_id = GetConnectionIdFromSpan(*span);
+  span->Log({{"type", "start"}, {"connection_id", connection_id}});
 
   // Find followers of the user
   auto followers_span = opentracing::Tracer::Global()->StartSpan(
@@ -221,6 +223,8 @@ void HomeTimelineHandler::ReadHomeTimeline(
   auto parent_span = opentracing::Tracer::Global()->Extract(reader);
   auto span = opentracing::Tracer::Global()->StartSpan(
       "read_home_timeline_server", {opentracing::ChildOf(parent_span->get())});
+  const auto connection_id = GetConnectionIdFromSpan(*span);
+  span->Log({{"type", "start"}, {"connection_id", connection_id}});
   opentracing::Tracer::Global()->Inject(span->context(), writer);
 
   if (stop_idx <= start_idx || start_idx < 0) {
@@ -276,6 +280,8 @@ void HomeTimelineHandler::ReadHomeTimeline(
     throw;
   }
   _post_client_pool->Keepalive(post_client_wrapper);
+  span->Log({{"type", "finish"}, {"connection_id", connection_id}});
+
   span->Finish();
 }
 

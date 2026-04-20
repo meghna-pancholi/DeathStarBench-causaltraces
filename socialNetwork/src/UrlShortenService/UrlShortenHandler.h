@@ -79,6 +79,8 @@ void UrlShortenHandler::ComposeUrls(
   auto span = opentracing::Tracer::Global()->StartSpan(
       "compose_urls_server",
       { opentracing::ChildOf(parent_span->get()) });
+  const auto connection_id = GetConnectionIdFromSpan(*span);
+  span->Log({{"type", "start"}, {"connection_id", connection_id}});
   opentracing::Tracer::Global()->Inject(span->context(), writer);
 
   std::vector<Url> target_urls;
@@ -162,6 +164,8 @@ void UrlShortenHandler::ComposeUrls(
   }
 
   _return = target_urls;
+  span->Log({{"type", "finish"}, {"connection_id", connection_id}});
+
   span->Finish();
 
 }

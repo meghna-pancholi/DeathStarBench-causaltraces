@@ -68,6 +68,8 @@ int64_t UniqueIdHandler::ComposeUniqueId(
   auto parent_span = opentracing::Tracer::Global()->Extract(reader);
   auto span = opentracing::Tracer::Global()->StartSpan(
       "compose_unique_id_server", {opentracing::ChildOf(parent_span->get())});
+  const auto connection_id = GetConnectionIdFromSpan(*span);
+  span->Log({{"type", "start"}, {"connection_id", connection_id}});
   opentracing::Tracer::Global()->Inject(span->context(), writer);
 
   _thread_lock->lock();
@@ -104,6 +106,7 @@ int64_t UniqueIdHandler::ComposeUniqueId(
   int64_t post_id = stoul(post_id_str, nullptr, 16) & 0x7FFFFFFFFFFFFFFF;
   LOG(debug) << "The post_id of the request " << req_id << " is " << post_id;
 
+  span->Log({{"type", "finish"}, {"connection_id", connection_id}});
   span->Finish();
   return post_id;
 }

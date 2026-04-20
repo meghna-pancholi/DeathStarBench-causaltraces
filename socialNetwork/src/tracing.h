@@ -4,6 +4,7 @@
 #define SOCIAL_NETWORK_MICROSERVICES_TRACING_H
 
 #include <string>
+#include <cstdint>
 #include <yaml-cpp/yaml.h>
 #include <jaegertracing/Tracer.h>
 
@@ -16,6 +17,17 @@ namespace social_network {
 
 using opentracing::expected;
 using opentracing::string_view;
+
+int64_t GetConnectionIdFromSpan(const opentracing::Span &span) {
+  const std::string connection_id_baggage = span.BaggageItem("connection_id");
+  if (!connection_id_baggage.empty()) {
+    try {
+      return std::stoll(connection_id_baggage);
+    } catch (const std::exception &) {
+    }
+  }
+  return 0;
+}
 
 class TextMapReader : public opentracing::TextMapReader {
  public:
