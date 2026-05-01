@@ -6,7 +6,8 @@ ports:
 
 container:
   command: UniqueIdService
-  image: deathstarbench/social-network-microservices
+  image: meghnapancholi/dsb-social
+  imageVersion: causaltracing
   name: unique-id-service
   ports: 
   - containerPort: 9090

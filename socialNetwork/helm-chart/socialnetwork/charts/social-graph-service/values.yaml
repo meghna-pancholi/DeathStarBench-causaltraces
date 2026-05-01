@@ -6,7 +6,8 @@ ports:
 
 container:
   command: SocialGraphService
-  image: deathstarbench/social-network-microservices
+  image: meghnapancholi/dsb-social
+  imageVersion: causaltracing
   name: social-graph-service
   ports: 
   - containerPort: 9090

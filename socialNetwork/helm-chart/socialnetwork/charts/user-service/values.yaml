@@ -6,7 +6,8 @@ ports:
 
 container:
   command: UserService
-  image: deathstarbench/social-network-microservices
+  image: meghnapancholi/dsb-social
+  imageVersion: causaltracing
   name: user-service
   ports: 
   - containerPort: 9090
