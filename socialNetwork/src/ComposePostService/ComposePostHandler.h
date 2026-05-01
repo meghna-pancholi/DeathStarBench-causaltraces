@@ -160,7 +160,7 @@ TextServiceReturn ComposePostHandler::_ComposeTextHelper(
   auto parent_span = opentracing::Tracer::Global()->Extract(reader);
   auto span = opentracing::Tracer::Global()->StartSpan(
       "compose_text_client", {opentracing::ChildOf(parent_span->get())});
-  const auto connection_id = GetConnectionIdFromSpan(*span);
+  auto connection_id = GetConnectionIdFromSpan(*span);
   span->Log({{"type", "start"}, {"connection_id", connection_id}});
 
   auto text_client_wrapper = _text_service_client_pool->Pop(span.get());
@@ -175,7 +175,7 @@ TextServiceReturn ComposePostHandler::_ComposeTextHelper(
     throw se;
   }
 
-  int64_t connection_id = static_cast<int64_t>(
+  connection_id = static_cast<int64_t>(
       reinterpret_cast<uintptr_t>(text_client_wrapper));
   const std::string connection_id_str = std::to_string(connection_id);
   span->SetBaggageItem("connection_id", connection_id_str);
