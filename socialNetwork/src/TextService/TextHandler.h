@@ -90,88 +90,135 @@ namespace social_network
       s = m.suffix().str();
     }
 
+    auto spawn_id_urls = std::to_string(req_id) + "-spawn-urls";
+    span->Log({{"type", "tracey_dependency_origin"}, {"dependency_id", spawn_id_urls}, {"dependency_type", "spawn"}});
     auto shortened_urls_future = std::async(std::launch::async, [&]()
                                             {
     auto url_span = opentracing::Tracer::Global()->StartSpan(
         "compose_urls_client", {opentracing::ChildOf(&span->context())});
+    span->Log({{"type", "tracey_dependency_destination"}, {"dependency_id", spawn_id_urls}, {"dependency_type", "spawn"}});
+    auto join_id_urls = std::to_string(req_id) + "-join-urls";
+    int64_t url_connection_id = 0;
 
     std::map<std::string, std::string> url_writer_text_map;
     TextMapWriter url_writer(url_writer_text_map);
-    opentracing::Tracer::Global()->Inject(url_span->context(), url_writer);
 
     auto url_client_wrapper = _url_client_pool->Pop(url_span.get());
     if (!url_client_wrapper) {
       ServiceException se;
       se.errorCode = ErrorCode::SE_THRIFT_CONN_ERROR;
       se.message = "Failed to connect to url-shorten-service";
+      span->Log({{"type", "tracey_dependency_origin"}, {"dependency_id", join_id_urls}, {"dependency_type", "signal"}});
+      url_span->Finish();
       throw se;
     }
     std::vector<Url> _return_urls;
     auto url_client = url_client_wrapper->GetClient();
+    url_connection_id = static_cast<int64_t>(reinterpret_cast<uintptr_t>(url_client_wrapper));
+    url_span->SetBaggageItem("connection_id", std::to_string(url_connection_id));
+    opentracing::Tracer::Global()->Inject(url_span->context(), url_writer);
+
     try {
+      url_span->Log({{"type", "call"}, {"connection_id", url_connection_id}});
       url_client->ComposeUrls(_return_urls, req_id, urls, url_writer_text_map);
     } catch (...) {
       LOG(error) << "Failed to upload urls to url-shorten-service";
       _url_client_pool->Remove(url_client_wrapper);
+      url_span->Log({{"type", "finish"}, {"connection_id", url_connection_id}});
+      url_span->Log({{"type", "tracey_dependency_origin"}, {"dependency_id", join_id_urls}, {"dependency_type", "signal"}});
+      url_span->Finish();
       throw;
     }
     _url_client_pool->Keepalive(url_client_wrapper);
+    url_span->Log({{"type", "finish"}, {"connection_id", url_connection_id}});
+    url_span->Log({{"type", "tracey_dependency_origin"}, {"dependency_id", join_id_urls}, {"dependency_type", "signal"}});
+    url_span->Finish();
     return _return_urls; });
 
+    auto spawn_id_mentions = std::to_string(req_id) + "-spawn-mentions";
+    span->Log({{"type", "tracey_dependency_origin"}, {"dependency_id", spawn_id_mentions}, {"dependency_type", "spawn"}});
     auto user_mention_future = std::async(std::launch::async, [&]()
                                           {
     auto user_mention_span = opentracing::Tracer::Global()->StartSpan(
         "compose_user_mentions_client",
         {opentracing::ChildOf(&span->context())});
+    span->Log({{"type", "tracey_dependency_destination"}, {"dependency_id", spawn_id_mentions}, {"dependency_type", "spawn"}});
+    auto join_id_mentions = std::to_string(req_id) + "-join-mentions";
+    int64_t mention_connection_id = 0;
 
     std::map<std::string, std::string> user_mention_writer_text_map;
     TextMapWriter user_mention_writer(user_mention_writer_text_map);
-    opentracing::Tracer::Global()->Inject(user_mention_span->context(),
-                                          user_mention_writer);
 
     auto user_mention_client_wrapper = _user_mention_client_pool->Pop(user_mention_span.get());
     if (!user_mention_client_wrapper) {
       ServiceException se;
       se.errorCode = ErrorCode::SE_THRIFT_CONN_ERROR;
       se.message = "Failed to connect to user-mention-service";
+      span->Log({{"type", "tracey_dependency_origin"}, {"dependency_id", join_id_mentions}, {"dependency_type", "signal"}});
+      user_mention_span->Finish();
       throw se;
     }
     std::vector<UserMention> _return_user_mentions;
     auto user_mention_client = user_mention_client_wrapper->GetClient();
+    mention_connection_id = static_cast<int64_t>(reinterpret_cast<uintptr_t>(user_mention_client_wrapper));
+    user_mention_span->SetBaggageItem("connection_id", std::to_string(mention_connection_id));
+    opentracing::Tracer::Global()->Inject(user_mention_span->context(), user_mention_writer);
+
     try {
+      user_mention_span->Log({{"type", "call"}, {"connection_id", mention_connection_id}});
       user_mention_client->ComposeUserMentions(_return_user_mentions, req_id,
                                                mention_usernames,
                                                user_mention_writer_text_map);
     } catch (...) {
       LOG(error) << "Failed to upload user_mentions to user-mention-service";
       _user_mention_client_pool->Remove(user_mention_client_wrapper);
+      user_mention_span->Log({{"type", "finish"}, {"connection_id", mention_connection_id}});
+      user_mention_span->Log({{"type", "tracey_dependency_origin"}, {"dependency_id", join_id_mentions}, {"dependency_type", "signal"}});
+      user_mention_span->Finish();
       throw;
     }
 
     _user_mention_client_pool->Keepalive(user_mention_client_wrapper);
+    user_mention_span->Log({{"type", "finish"}, {"connection_id", mention_connection_id}});
+    user_mention_span->Log({{"type", "tracey_dependency_origin"}, {"dependency_id", join_id_mentions}, {"dependency_type", "signal"}});
+    user_mention_span->Finish();
     return _return_user_mentions; });
 
     std::vector<Url> target_urls;
+    span->Log({{"type", "suspend_start"}});
     try
     {
       target_urls = shortened_urls_future.get();
     }
     catch (...)
     {
+      span->Log({{"type", "suspend_stop"}});
+      auto join_id_urls = std::to_string(req_id) + "-join-urls";
+      span->Log({{"type", "tracey_dependency_destination"}, {"dependency_id", join_id_urls}, {"dependency_type", "signal"}});
       LOG(error) << "Failed to get shortened urls from url-shorten-service";
       throw;
     }
+    span->Log({{"type", "suspend_stop"}});
+    auto join_id_urls = std::to_string(req_id) + "-join-urls";
+    span->Log({{"type", "tracey_dependency_destination"}, {"dependency_id", join_id_urls}, {"dependency_type", "signal"}});
 
     std::vector<UserMention> user_mentions;
+    span->Log({{"type", "suspend_start"}});
     try
     {
       user_mentions = user_mention_future.get();
     }
     catch (...)
     {
+      span->Log({{"type", "suspend_stop"}});
+      auto join_id_mentions = std::to_string(req_id) + "-join-mentions";
+      span->Log({{"type", "tracey_dependency_destination"}, {"dependency_id", join_id_mentions}, {"dependency_type", "signal"}});
       LOG(error) << "Failed to upload user mentions to user-mention-service";
       throw;
     }
+    span->Log({{"type", "suspend_stop"}});
+    auto join_id_mentions = std::to_string(req_id) + "-join-mentions";
+    span->Log({{"type", "tracey_dependency_destination"}, {"dependency_id", join_id_mentions}, {"dependency_type", "signal"}});
 
     std::string updated_text;
     if (!urls.empty())

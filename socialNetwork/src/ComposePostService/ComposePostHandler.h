@@ -115,11 +115,12 @@ Creator ComposePostHandler::_ComposeCreaterHelper(
   auto parent_span = opentracing::Tracer::Global()->Extract(reader);
   auto span = opentracing::Tracer::Global()->StartSpan(
       "compose_creator_client", {opentracing::ChildOf(parent_span->get())});
-  const auto connection_id = GetConnectionIdFromSpan(*span);
-  span->Log({{"type", "start"}, {"connection_id", connection_id}});
+  auto spawn_id = std::to_string(req_id) + "-spawn-creator";
+  span->Log({{"type", "tracey_dependency_destination"}, {"dependency_id", spawn_id}, {"dependency_type", "spawn"}});
+  auto join_id = std::to_string(req_id) + "-join-creator";
+  int64_t connection_id = 0;
   std::map<std::string, std::string> writer_text_map;
   TextMapWriter writer(writer_text_map);
-  opentracing::Tracer::Global()->Inject(span->context(), writer);
 
   auto user_client_wrapper = _user_service_client_pool->Pop(span.get());
   if (!user_client_wrapper) {
@@ -127,28 +128,31 @@ Creator ComposePostHandler::_ComposeCreaterHelper(
     se.errorCode = ErrorCode::SE_THRIFT_CONN_ERROR;
     se.message = "Failed to connect to user-service";
     LOG(error) << se.message;
-    span->Log({{"type", "finish"}, {"connection_id", connection_id}});
-
+    span->Log({{"type", "tracey_dependency_origin"}, {"dependency_id", join_id}, {"dependency_type", "signal"}});
     span->Finish();
     throw se;
   }
 
   auto user_client = user_client_wrapper->GetClient();
+  connection_id = static_cast<int64_t>(reinterpret_cast<uintptr_t>(user_client_wrapper));
+  span->SetBaggageItem("connection_id", std::to_string(connection_id));
+  opentracing::Tracer::Global()->Inject(span->context(), writer);
   Creator _return_creator;
   try {
+    span->Log({{"type", "call"}, {"connection_id", connection_id}});
     user_client->ComposeCreatorWithUserId(_return_creator, req_id, user_id,
                                           username, writer_text_map);
   } catch (...) {
     LOG(error) << "Failed to send compose-creator to user-service";
     _user_service_client_pool->Remove(user_client_wrapper);
     span->Log({{"type", "finish"}, {"connection_id", connection_id}});
-
+    span->Log({{"type", "tracey_dependency_origin"}, {"dependency_id", join_id}, {"dependency_type", "signal"}});
     span->Finish();
     throw;
   }
   _user_service_client_pool->Keepalive(user_client_wrapper);
   span->Log({{"type", "finish"}, {"connection_id", connection_id}});
-
+  span->Log({{"type", "tracey_dependency_origin"}, {"dependency_id", join_id}, {"dependency_type", "signal"}});
   span->Finish();
   return _return_creator;
 }
@@ -160,8 +164,12 @@ TextServiceReturn ComposePostHandler::_ComposeTextHelper(
   auto parent_span = opentracing::Tracer::Global()->Extract(reader);
   auto span = opentracing::Tracer::Global()->StartSpan(
       "compose_text_client", {opentracing::ChildOf(parent_span->get())});
-  auto connection_id = GetConnectionIdFromSpan(*span);
-  span->Log({{"type", "start"}, {"connection_id", connection_id}});
+  auto spawn_id = std::to_string(req_id) + "-spawn-text";
+  span->Log({{"type", "tracey_dependency_destination"}, {"dependency_id", spawn_id}, {"dependency_type", "spawn"}});
+  auto join_id = std::to_string(req_id) + "-join-text";
+  int64_t connection_id = 0;
+  std::map<std::string, std::string> writer_text_map;
+  TextMapWriter writer(writer_text_map);
 
   auto text_client_wrapper = _text_service_client_pool->Pop(span.get());
   if (!text_client_wrapper) {
@@ -169,8 +177,7 @@ TextServiceReturn ComposePostHandler::_ComposeTextHelper(
     se.errorCode = ErrorCode::SE_THRIFT_CONN_ERROR;
     se.message = "Failed to connect to text-service";
     LOG(error) << se.message;
-    span->Log({{"type", "finish"}, {"connection_id", connection_id}});
-
+    span->Log({{"type", "tracey_dependency_origin"}, {"dependency_id", join_id}, {"dependency_type", "signal"}});
     span->Finish();
     throw se;
   }
@@ -179,9 +186,6 @@ TextServiceReturn ComposePostHandler::_ComposeTextHelper(
       reinterpret_cast<uintptr_t>(text_client_wrapper));
   const std::string connection_id_str = std::to_string(connection_id);
   span->SetBaggageItem("connection_id", connection_id_str);
-
-  std::map<std::string, std::string> writer_text_map;
-  TextMapWriter writer(writer_text_map);
   opentracing::Tracer::Global()->Inject(span->context(), writer);
 
   auto text_client = text_client_wrapper->GetClient();
@@ -193,13 +197,13 @@ TextServiceReturn ComposePostHandler::_ComposeTextHelper(
     LOG(error) << "Failed to send compose-text to text-service";
     _text_service_client_pool->Remove(text_client_wrapper);
     span->Log({{"type", "finish"}, {"connection_id", connection_id}});
-
+    span->Log({{"type", "tracey_dependency_origin"}, {"dependency_id", join_id}, {"dependency_type", "signal"}});
     span->Finish();
     throw;
   }
   _text_service_client_pool->Keepalive(text_client_wrapper);
   span->Log({{"type", "finish"}, {"connection_id", connection_id}});
-
+  span->Log({{"type", "tracey_dependency_origin"}, {"dependency_id", join_id}, {"dependency_type", "signal"}});
   span->Finish();
   return _return_text;
 }
@@ -212,11 +216,12 @@ std::vector<Media> ComposePostHandler::_ComposeMediaHelper(
   auto parent_span = opentracing::Tracer::Global()->Extract(reader);
   auto span = opentracing::Tracer::Global()->StartSpan(
       "compose_media_client", {opentracing::ChildOf(parent_span->get())});
-  const auto connection_id = GetConnectionIdFromSpan(*span);
-  span->Log({{"type", "start"}, {"connection_id", connection_id}});
+  auto spawn_id = std::to_string(req_id) + "-spawn-media";
+  span->Log({{"type", "tracey_dependency_destination"}, {"dependency_id", spawn_id}, {"dependency_type", "spawn"}});
+  auto join_id = std::to_string(req_id) + "-join-media";
+  int64_t connection_id = 0;
   std::map<std::string, std::string> writer_text_map;
   TextMapWriter writer(writer_text_map);
-  opentracing::Tracer::Global()->Inject(span->context(), writer);
 
   auto media_client_wrapper = _media_service_client_pool->Pop(span.get());
   if (!media_client_wrapper) {
@@ -224,29 +229,34 @@ std::vector<Media> ComposePostHandler::_ComposeMediaHelper(
     se.errorCode = ErrorCode::SE_THRIFT_CONN_ERROR;
     se.message = "Failed to connect to media-service";
     LOG(error) << se.message;
-    ;
-    span->Log({{"type", "finish"}, {"connection_id", connection_id}});
-
+    span->Log({{"type", "tracey_dependency_origin"}, {"dependency_id", join_id}, {"dependency_type", "signal"}});
     span->Finish();
     throw se;
   }
 
   auto media_client = media_client_wrapper->GetClient();
+  connection_id = static_cast<int64_t>(
+      reinterpret_cast<uintptr_t>(media_client_wrapper));
+  const std::string connection_id_str = std::to_string(connection_id);
+  span->SetBaggageItem("connection_id", connection_id_str);
+  opentracing::Tracer::Global()->Inject(span->context(), writer);
+
   std::vector<Media> _return_media;
   try {
+    span->Log({{"type", "call"}, {"connection_id", connection_id}});
     media_client->ComposeMedia(_return_media, req_id, media_types, media_ids,
                                writer_text_map);
   } catch (...) {
     LOG(error) << "Failed to send compose-media to media-service";
     _media_service_client_pool->Remove(media_client_wrapper);
     span->Log({{"type", "finish"}, {"connection_id", connection_id}});
-
+    span->Log({{"type", "tracey_dependency_origin"}, {"dependency_id", join_id}, {"dependency_type", "signal"}});
     span->Finish();
     throw;
   }
   _media_service_client_pool->Keepalive(media_client_wrapper);
   span->Log({{"type", "finish"}, {"connection_id", connection_id}});
-
+  span->Log({{"type", "tracey_dependency_origin"}, {"dependency_id", join_id}, {"dependency_type", "signal"}});
   span->Finish();
   return _return_media;
 }
@@ -258,11 +268,12 @@ int64_t ComposePostHandler::_ComposeUniqueIdHelper(
   auto parent_span = opentracing::Tracer::Global()->Extract(reader);
   auto span = opentracing::Tracer::Global()->StartSpan(
       "compose_unique_id_client", {opentracing::ChildOf(parent_span->get())});
-  const auto connection_id = GetConnectionIdFromSpan(*span);
-  span->Log({{"type", "start"}, {"connection_id", connection_id}});
+  auto spawn_id = std::to_string(req_id) + "-spawn-unique-id";
+  span->Log({{"type", "tracey_dependency_destination"}, {"dependency_id", spawn_id}, {"dependency_type", "spawn"}});
+  auto join_id = std::to_string(req_id) + "-join-unique-id";
+  int64_t connection_id = 0;
   std::map<std::string, std::string> writer_text_map;
   TextMapWriter writer(writer_text_map);
-  opentracing::Tracer::Global()->Inject(span->context(), writer);
 
   auto unique_id_client_wrapper = _unique_id_service_client_pool->Pop(span.get());
   if (!unique_id_client_wrapper) {
@@ -270,28 +281,34 @@ int64_t ComposePostHandler::_ComposeUniqueIdHelper(
     se.errorCode = ErrorCode::SE_THRIFT_CONN_ERROR;
     se.message = "Failed to connect to unique_id-service";
     LOG(error) << se.message;
-    span->Log({{"type", "finish"}, {"connection_id", connection_id}});
-
+    span->Log({{"type", "tracey_dependency_origin"}, {"dependency_id", join_id}, {"dependency_type", "signal"}});
     span->Finish();
     throw se;
   }
 
   auto unique_id_client = unique_id_client_wrapper->GetClient();
+  connection_id = static_cast<int64_t>(
+      reinterpret_cast<uintptr_t>(unique_id_client_wrapper));
+  const std::string connection_id_str = std::to_string(connection_id);
+  span->SetBaggageItem("connection_id", connection_id_str);
+  opentracing::Tracer::Global()->Inject(span->context(), writer);
+
   int64_t _return_unique_id;
   try {
+    span->Log({{"type", "call"}, {"connection_id", connection_id}});
     _return_unique_id =
         unique_id_client->ComposeUniqueId(req_id, post_type, writer_text_map);
   } catch (...) {
     LOG(error) << "Failed to send compose-unique_id to unique_id-service";
     _unique_id_service_client_pool->Remove(unique_id_client_wrapper);
     span->Log({{"type", "finish"}, {"connection_id", connection_id}});
-
+    span->Log({{"type", "tracey_dependency_origin"}, {"dependency_id", join_id}, {"dependency_type", "signal"}});
     span->Finish();
     throw;
   }
   _unique_id_service_client_pool->Keepalive(unique_id_client_wrapper);
   span->Log({{"type", "finish"}, {"connection_id", connection_id}});
-
+  span->Log({{"type", "tracey_dependency_origin"}, {"dependency_id", join_id}, {"dependency_type", "signal"}});
   span->Finish();
   return _return_unique_id;
 }
@@ -303,11 +320,12 @@ void ComposePostHandler::_UploadPostHelper(
   auto parent_span = opentracing::Tracer::Global()->Extract(reader);
   auto span = opentracing::Tracer::Global()->StartSpan(
       "store_post_client", {opentracing::ChildOf(parent_span->get())});
-  const auto connection_id = GetConnectionIdFromSpan(*span);
-  span->Log({{"type", "start"}, {"connection_id", connection_id}});
+  auto spawn_id = std::to_string(req_id) + "-spawn-post";
+  span->Log({{"type", "tracey_dependency_destination"}, {"dependency_id", spawn_id}, {"dependency_type", "spawn"}});
+  auto join_id = std::to_string(req_id) + "-join-post";
+  int64_t connection_id = 0;
   std::map<std::string, std::string> writer_text_map;
   TextMapWriter writer(writer_text_map);
-  opentracing::Tracer::Global()->Inject(span->context(), writer);
 
   auto post_storage_client_wrapper = _post_storage_client_pool->Pop(span.get());
   if (!post_storage_client_wrapper) {
@@ -315,20 +333,32 @@ void ComposePostHandler::_UploadPostHelper(
     se.errorCode = ErrorCode::SE_THRIFT_CONN_ERROR;
     se.message = "Failed to connect to post-storage-service";
     LOG(error) << se.message;
-    ;
+    span->Log({{"type", "tracey_dependency_origin"}, {"dependency_id", join_id}, {"dependency_type", "signal"}});
+    span->Finish();
     throw se;
   }
   auto post_storage_client = post_storage_client_wrapper->GetClient();
+  connection_id = static_cast<int64_t>(
+      reinterpret_cast<uintptr_t>(post_storage_client_wrapper));
+  const std::string connection_id_str = std::to_string(connection_id);
+  span->SetBaggageItem("connection_id", connection_id_str);
+  opentracing::Tracer::Global()->Inject(span->context(), writer);
+
   try {
+    span->Log({{"type", "call"}, {"connection_id", connection_id}});
     post_storage_client->StorePost(req_id, post, writer_text_map);
   } catch (...) {
     _post_storage_client_pool->Remove(post_storage_client_wrapper);
     LOG(error) << "Failed to store post to post-storage-service";
+    span->Log({{"type", "finish"}, {"connection_id", connection_id}});
+    span->Log({{"type", "tracey_dependency_origin"}, {"dependency_id", join_id}, {"dependency_type", "signal"}});
+    span->Finish();
     throw;
   }
   _post_storage_client_pool->Keepalive(post_storage_client_wrapper);
 
   span->Log({{"type", "finish"}, {"connection_id", connection_id}});
+  span->Log({{"type", "tracey_dependency_origin"}, {"dependency_id", join_id}, {"dependency_type", "signal"}});
   span->Finish();
 }
 
@@ -339,11 +369,9 @@ void ComposePostHandler::_UploadUserTimelineHelper(
   auto parent_span = opentracing::Tracer::Global()->Extract(reader);
   auto span = opentracing::Tracer::Global()->StartSpan(
       "write_user_timeline_client", {opentracing::ChildOf(parent_span->get())});
-  const auto connection_id = GetConnectionIdFromSpan(*span);
-  span->Log({{"type", "start"}, {"connection_id", connection_id}});
+  int64_t connection_id = 0;
   std::map<std::string, std::string> writer_text_map;
   TextMapWriter writer(writer_text_map);
-  opentracing::Tracer::Global()->Inject(span->context(), writer);
 
   auto user_timeline_client_wrapper = _user_timeline_client_pool->Pop(span.get());
   if (!user_timeline_client_wrapper) {
@@ -351,15 +379,24 @@ void ComposePostHandler::_UploadUserTimelineHelper(
     se.errorCode = ErrorCode::SE_THRIFT_CONN_ERROR;
     se.message = "Failed to connect to user-timeline-service";
     LOG(error) << se.message;
-    ;
+    span->Finish();
     throw se;
   }
   auto user_timeline_client = user_timeline_client_wrapper->GetClient();
+  connection_id = static_cast<int64_t>(
+      reinterpret_cast<uintptr_t>(user_timeline_client_wrapper));
+  const std::string connection_id_str = std::to_string(connection_id);
+  span->SetBaggageItem("connection_id", connection_id_str);
+  opentracing::Tracer::Global()->Inject(span->context(), writer);
+
   try {
+    span->Log({{"type", "call"}, {"connection_id", connection_id}});
     user_timeline_client->WriteUserTimeline(req_id, post_id, user_id, timestamp,
                                             writer_text_map);
   } catch (...) {
     _user_timeline_client_pool->Remove(user_timeline_client_wrapper);
+    span->Log({{"type", "finish"}, {"connection_id", connection_id}});
+    span->Finish();
     throw;
   }
   _user_timeline_client_pool->Keepalive(user_timeline_client_wrapper);
@@ -376,11 +413,9 @@ void ComposePostHandler::_UploadHomeTimelineHelper(
   auto parent_span = opentracing::Tracer::Global()->Extract(reader);
   auto span = opentracing::Tracer::Global()->StartSpan(
       "write_home_timeline_client", {opentracing::ChildOf(parent_span->get())});
-  const auto connection_id = GetConnectionIdFromSpan(*span);
-  span->Log({{"type", "start"}, {"connection_id", connection_id}});
+  int64_t connection_id = 0;
   std::map<std::string, std::string> writer_text_map;
   TextMapWriter writer(writer_text_map);
-  opentracing::Tracer::Global()->Inject(span->context(), writer);
 
   auto home_timeline_client_wrapper = _home_timeline_client_pool->Pop(span.get());
   if (!home_timeline_client_wrapper) {
@@ -388,16 +423,25 @@ void ComposePostHandler::_UploadHomeTimelineHelper(
     se.errorCode = ErrorCode::SE_THRIFT_CONN_ERROR;
     se.message = "Failed to connect to home-timeline-service";
     LOG(error) << se.message;
-    ;
+    span->Finish();
     throw se;
   }
   auto home_timeline_client = home_timeline_client_wrapper->GetClient();
+  connection_id = static_cast<int64_t>(
+      reinterpret_cast<uintptr_t>(home_timeline_client_wrapper));
+  const std::string connection_id_str = std::to_string(connection_id);
+  span->SetBaggageItem("connection_id", connection_id_str);
+  opentracing::Tracer::Global()->Inject(span->context(), writer);
+
   try {
+    span->Log({{"type", "call"}, {"connection_id", connection_id}});
     home_timeline_client->WriteHomeTimeline(req_id, post_id, user_id, timestamp,
                                             user_mentions_id, writer_text_map);
   } catch (...) {
     _home_timeline_client_pool->Remove(home_timeline_client_wrapper);
     LOG(error) << "Failed to write home timeline to home-timeline-service";
+    span->Log({{"type", "finish"}, {"connection_id", connection_id}});
+    span->Finish();
     throw;
   }
   _home_timeline_client_pool->Keepalive(home_timeline_client_wrapper);
@@ -421,15 +465,26 @@ void ComposePostHandler::ComposePost(
   TextMapWriter writer(writer_text_map);
   opentracing::Tracer::Global()->Inject(span->context(), writer);
 
+  auto spawn_id_text = std::to_string(req_id) + "-spawn-text";
+  span->Log({{"type", "tracey_dependency_origin"}, {"dependency_id", spawn_id_text}, {"dependency_type", "spawn"}});
   auto text_future =
       std::async(std::launch::async, &ComposePostHandler::_ComposeTextHelper,
                  this, req_id, text, writer_text_map);
+
+  auto spawn_id_creator = std::to_string(req_id) + "-spawn-creator";
+  span->Log({{"type", "tracey_dependency_origin"}, {"dependency_id", spawn_id_creator}, {"dependency_type", "spawn"}});
   auto creator_future =
       std::async(std::launch::async, &ComposePostHandler::_ComposeCreaterHelper,
                  this, req_id, user_id, username, writer_text_map);
+
+  auto spawn_id_media = std::to_string(req_id) + "-spawn-media";
+  span->Log({{"type", "tracey_dependency_origin"}, {"dependency_id", spawn_id_media}, {"dependency_type", "spawn"}});
   auto media_future =
       std::async(std::launch::async, &ComposePostHandler::_ComposeMediaHelper,
                  this, req_id, media_types, media_ids, writer_text_map);
+
+  auto spawn_id_unique_id = std::to_string(req_id) + "-spawn-unique-id";
+  span->Log({{"type", "tracey_dependency_origin"}, {"dependency_id", spawn_id_unique_id}, {"dependency_type", "spawn"}});
   auto unique_id_future = std::async(
       std::launch::async, &ComposePostHandler::_ComposeUniqueIdHelper, this,
       req_id, post_type, writer_text_map);
@@ -440,32 +495,43 @@ void ComposePostHandler::ComposePost(
           .count();
   post.timestamp = timestamp;
 
-  // try
-  // {
+  span->Log({{"type", "suspend_start"}});
   post.post_id = unique_id_future.get();
+  span->Log({{"type", "suspend_stop"}});
+  auto join_id_unique_id = std::to_string(req_id) + "-join-unique-id";
+  span->Log({{"type", "tracey_dependency_destination"}, {"dependency_id", join_id_unique_id}, {"dependency_type", "signal"}});
+
+  span->Log({{"type", "suspend_start"}});
   post.creator = creator_future.get();
+  span->Log({{"type", "suspend_stop"}});
+  auto join_id_creator = std::to_string(req_id) + "-join-creator";
+  span->Log({{"type", "tracey_dependency_destination"}, {"dependency_id", join_id_creator}, {"dependency_type", "signal"}});
+
+  span->Log({{"type", "suspend_start"}});
   post.media = media_future.get();
+  span->Log({{"type", "suspend_stop"}});
+  auto join_id_media = std::to_string(req_id) + "-join-media";
+  span->Log({{"type", "tracey_dependency_destination"}, {"dependency_id", join_id_media}, {"dependency_type", "signal"}});
+
+  span->Log({{"type", "suspend_start"}});
   auto text_return = text_future.get();
+  span->Log({{"type", "suspend_stop"}});
+  auto join_id_text = std::to_string(req_id) + "-join-text";
+  span->Log({{"type", "tracey_dependency_destination"}, {"dependency_id", join_id_text}, {"dependency_type", "signal"}});
+
   post.text = text_return.text;
   post.urls = text_return.urls;
   post.user_mentions = text_return.user_mentions;
   post.req_id = req_id;
   post.post_type = post_type;
-  // }
-  // catch (...)
-  // {
-  //   throw;
-  // }
 
   std::vector<int64_t> user_mention_ids;
   for (auto &item : post.user_mentions) {
     user_mention_ids.emplace_back(item.user_id);
   }
 
-  //In mixed workloed condition, need to make sure _UploadPostHelper execute
-  //Before _UploadUserTimelineHelper and _UploadHomeTimelineHelper.
-  //Change _UploadUserTimelineHelper and _UploadHomeTimelineHelper to deferred.
-  //To let them start execute after post_future.get() return.
+  auto spawn_id_post = std::to_string(req_id) + "-spawn-post";
+  span->Log({{"type", "tracey_dependency_origin"}, {"dependency_id", spawn_id_post}, {"dependency_type", "spawn"}});
   auto post_future =
       std::async(std::launch::async, &ComposePostHandler::_UploadPostHelper,
                  this, req_id, post, writer_text_map);
@@ -477,31 +543,16 @@ void ComposePostHandler::ComposePost(
       req_id, post.post_id, user_id, timestamp, user_mention_ids,
       writer_text_map);
 
-
-  // We start waiting for the futures to complete. 
   span->Log({{"type", "suspend_start"}});
-
-  // try
-  // {
   post_future.get();
   span->Log({{"type", "suspend_stop"}});
-  span->Log({{"type", "suspend_start"}});
-  // Stop wait and start waiting again. 
+  auto join_id_post = std::to_string(req_id) + "-join-post";
+  span->Log({{"type", "tracey_dependency_destination"}, {"dependency_id", join_id_post}, {"dependency_type", "signal"}});
+
   user_timeline_future.get();
-  span->Log({{"type", "suspend_stop"}});
-  span->Log({{"type", "suspend_start"}});
-  // Stop wait and start waiting again. 
   home_timeline_future.get();
   
-  // Stop waiting. 
-  span->Log({{"type", "suspend_stop"}});
-  // }
-  // catch (...)
-  // {
-  //   throw;
-  // }
   span->Log({{"type", "finish"}, {"connection_id", connection_id}});
-
   span->Finish();
 }
 

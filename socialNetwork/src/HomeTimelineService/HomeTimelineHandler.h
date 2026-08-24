@@ -111,28 +111,43 @@ void HomeTimelineHandler::WriteHomeTimeline(
   // Find followers of the user
   auto followers_span = opentracing::Tracer::Global()->StartSpan(
       "get_followers_client", {opentracing::ChildOf(&span->context())});
+  int64_t followers_connection_id = 0;
   std::map<std::string, std::string> writer_text_map;
   TextMapWriter writer(writer_text_map);
-  opentracing::Tracer::Global()->Inject(followers_span->context(), writer);
 
   auto social_graph_client_wrapper = _social_graph_client_pool->Pop(followers_span.get());
   if (!social_graph_client_wrapper) {
     ServiceException se;
     se.errorCode = ErrorCode::SE_THRIFT_CONN_ERROR;
     se.message = "Failed to connect to social-graph-service";
+    followers_span->Finish();
+    span->Log({{"type", "finish"}, {"connection_id", connection_id}});
+    span->Finish();
     throw se;
   }
   auto social_graph_client = social_graph_client_wrapper->GetClient();
+  followers_connection_id = static_cast<int64_t>(
+      reinterpret_cast<uintptr_t>(social_graph_client_wrapper));
+  const std::string followers_connection_id_str = std::to_string(followers_connection_id);
+  followers_span->SetBaggageItem("connection_id", followers_connection_id_str);
+  opentracing::Tracer::Global()->Inject(followers_span->context(), writer);
+
   std::vector<int64_t> followers_id;
   try {
+    followers_span->Log({{"type", "call"}, {"connection_id", followers_connection_id}});
     social_graph_client->GetFollowers(followers_id, req_id, user_id,
                                       writer_text_map);
   } catch (...) {
     LOG(error) << "Failed to get followers from social-network-service";
     _social_graph_client_pool->Remove(social_graph_client_wrapper);
+    followers_span->Log({{"type", "finish"}, {"connection_id", followers_connection_id}});
+    followers_span->Finish();
+    span->Log({{"type", "finish"}, {"connection_id", connection_id}});
+    span->Finish();
     throw;
   }
   _social_graph_client_pool->Keepalive(social_graph_client_wrapper);
+  followers_span->Log({{"type", "finish"}, {"connection_id", followers_connection_id}});
   followers_span->Finish();
 
   std::set<int64_t> followers_id_set(followers_id.begin(), followers_id.end());
@@ -156,6 +171,9 @@ void HomeTimelineHandler::WriteHomeTimeline(
         auto replies = pipe.exec();
       } catch (const Error &err) {
         LOG(error) << err.what();
+        redis_span->Finish();
+        span->Log({{"type", "finish"}, {"connection_id", connection_id}});
+        span->Finish();
         throw err;
       }
     }
@@ -171,6 +189,9 @@ void HomeTimelineHandler::WriteHomeTimeline(
         }
         catch (const Error& err) {
             LOG(error) << err.what();
+            redis_span->Finish();
+            span->Log({{"type", "finish"}, {"connection_id", connection_id}});
+            span->Finish();
             throw err;
         }
     }
@@ -205,11 +226,16 @@ void HomeTimelineHandler::WriteHomeTimeline(
 
       } catch (const Error &err) {
         LOG(error) << err.what();
+        redis_span->Finish();
+        span->Log({{"type", "finish"}, {"connection_id", connection_id}});
+        span->Finish();
         throw err;
       }
     }
   }
   redis_span->Finish();
+  span->Log({{"type", "finish"}, {"connection_id", connection_id}});
+  span->Finish();
 }
 
 
